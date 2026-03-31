@@ -18,4 +18,11 @@ app.use(cors({
 }))
 
 
+//Router import
+import userRouter from "./routes/user.routes.js"
+
+//Router declaration
+app.use("/users", userRouter)
+
+
 export {app}
