@@ -18,11 +18,12 @@ app.use(cors({
 }))
 
 
-//Router import
+//import Routes
 import userRouter from "./routes/user.routes.js"
 
 //Router declaration
-app.use("/users", userRouter)
+app.use("/api/v1/users", userRouter)
 
+//http://localhost:8000/api/v1/user/register
 
 export {app}

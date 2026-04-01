@@ -6,7 +6,7 @@ const userSchema = new Schema(
   {
     username: {
       type: String,
-      require: true,
+      required: true,
       unique: true,
       lowercase: true,
       trim: true,
@@ -14,29 +14,29 @@ const userSchema = new Schema(
     },
     email: {
       type: String,
-      require: true,
+      required: true,
       unique: true,
       lowercase: true,
       trim: true,
     },
     fullname: {
       type: String,
-      require: true,
+      required: true,
       trim: true,
       index: true,
     },
-    Avatar: {
+    avatar: {
       type: String, //cloudnary url use karege for imgs
-      require: true,
+      required: true,
     },
     coverImage: {
       type: String,
     },
     watchHistory: [
       {
-        type: mongoose.Schema.types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: "Video",
-      },
+      }
     ],
     password: {
       type: String,
@@ -44,24 +44,24 @@ const userSchema = new Schema(
     },
     refresToken: {
       type: String,
-    },
+    }
   },
   {
     timestamps: true,
   }
 );
 
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  this.password = bcrypt.hash(this.password, 10);
-  next();
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return ;
+
+  this.password = await bcrypt.hash(this.password, 10);
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-userSchema.method.generateAccessToken = function () {
+userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
       _id: this._id,
@@ -69,13 +69,13 @@ userSchema.method.generateAccessToken = function () {
       username: this.username,
       fullname: this.fullname,
     },
-    process.env.ACCES_TOKEN_SECRET,
+    process.env.ACCESS_TOKEN_SECRET,
     {
-      expiresIn: process.env.ACCES_TOKEN_EXPIRY,
-    }
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+    },
   );
 };
-userSchema.method.generateRefreshToken = function () {
+userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
       _id: this._id,
