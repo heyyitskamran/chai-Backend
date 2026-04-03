@@ -3,17 +3,21 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import jwt from "jsonwebtoken";
 
 const generateAccessTokenAndRefreshToken = async (userId) => {
   try {
     const user = await User.findById(userId);
+    // console.log(user)
     const accessToken = user.generateAccessToken();
+    // console.log(accessToken)
     const refreshToken = user.generateRefreshToken();
+    console.log(refreshToken);
 
     user.refreshToken = refreshToken;
-    await user.save({ ValidateBeforSave: false });
-
+    await user.save({ validateBeforeSave: false });
     return { refreshToken, accessToken };
+
   } catch (error) {
     throw new ApiError(
       500,
@@ -97,9 +101,9 @@ const registerUser = asyncHandler(async (req, res) => {
 
 const loginUser = asyncHandler(async (req, res) => {
   const { username, password, email } = req.body;
-  console.log(req.body);
+  // console.log(req.body);
 
-  if (!username || !email) {
+  if (!username && !email) {
     throw new ApiError(400, "username or email is required");
   }
 
@@ -130,39 +134,88 @@ const loginUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
-    .cookie("refresToken", refreshToken, options)
+    .cookie("refreshToken", refreshToken, options)
     .json(
-      200,
-      {
-        user: loggedInUser,
-        accessToken,
-        refreshToken,
+      new ApiResponse(200,{
+        user: loggedInUser,accessToken,refreshToken
       },
-      "User LoggedIn successfully",
-    );
+      "User logged in Successfully"
+    )
+    )
 });
 
-const logoutUser = asyncHandler(async(req, res) => {
-    await User.findByIdAndUpdate(
-        req.user._id,
-        {
-            $set: {
-                refreshToken: undefined
-            }
-        },
-        {
-            new: true
-        }
-    )
-    const options = {
+const logoutUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $unset: {
+        refreshToken: 1,
+      },
+    },
+    {
+      new: true
+    },
+  );
+  
+  const options = {
     httpOnly: true,
     secure: true,
-  }
+  };
   return res
-  .status(200)
-  .clearCookie("accessToken", options)
-  .clearCookie("refresToken", options)
-  .json(new ApiError(200, {}, "User Logged Out"))
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiError(200, {}, "User Logged Out"));
+});
+
+
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken = res.cookie.refreshToken || req.body.refreshToken
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401,"Unauthorize Request")
+  }
+  // verify the incoming token
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    )
+  
+    const user = await User.findById(user._id)
+  
+    if (!user) {
+      throw new ApiError(401,"Invalid Refresh Token")
+    }
+  
+    //check user refreshtoken and db refreshtoken
+    if(incomingRefreshToken !== user?.refreshToken){
+      throw new ApiError(401, "RefreshToken Expired")
+    }
+  
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+  
+    //generate new refreshTokens and accessTokens
+    const {accessToken, newRefreshToken} = await generateAccessTokenAndRefreshToken(user._id)
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("newRefreshToken", newRefreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {accessToken, refreshToken: newRefreshToken},
+        "Access Token Refreshed"
+      )
+    )
+  } catch (error) {
+    throw new ApiError(401, error?.message || "Invalid refresh Token")
+  }
+
+
 })
 
-export { registerUser, loginUser, logoutUser };
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
